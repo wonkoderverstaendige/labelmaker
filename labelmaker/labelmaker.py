@@ -33,14 +33,16 @@ class LabelMaker:
         self.disp_frame = None
 
         self.labels_csv_path = Path(labels_file).resolve() if labels_file is not None else None
-        if self.labels_csv_path.exists():
+        if self.labels_csv_path is not None:
             print('Loading existing labels file')
             self.labels = pd.read_csv(str(self.labels_csv_path), index_col='frame')
         else:
+            iso_date = datetime.now().strftime('%Y%m%d_%H%M%S')
+            self.labels_csv_path = str(self.path) + '.LabelMaker.csv'.format(iso_date)
             print('Creating empty labels DF')
             self.labels = pd.DataFrame(index=range(self.num_frames),
                                        columns=COLUMNS)
-        self.labels['presented'] = 0
+            self.labels['presented'] = 0
 
         self.alive = True
         self.pressed_key = -1
@@ -51,7 +53,7 @@ class LabelMaker:
 
         self.mode = 0
         if force_mode is not None:
-            print(f'Forcing mode {force_mode}')
+            print('Forcing mode {}'.format(force_mode))
             self.force_mode = int(force_mode)
             self.mode = self.force_mode
         else:
@@ -135,8 +137,8 @@ class LabelMaker:
 
     def process_mouse_event(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            self.labels.loc[self.frame_id, f'{MODES[self.mode]}x'] = x
-            self.labels.loc[self.frame_id, f'{MODES[self.mode]}y'] = y
+            self.labels.loc[self.frame_id, '{}x'.format(MODES[self.mode])] = x
+            self.labels.loc[self.frame_id, '{}y'.format(MODES[self.mode])] = y
             self.mode = self.mode + 1
             if self.mode >= len(MODES) or self.force_mode is not None:
                 self.grab()
