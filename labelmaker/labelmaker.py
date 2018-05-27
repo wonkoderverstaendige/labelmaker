@@ -6,6 +6,7 @@ import pandas as pd
 import argparse
 from datetime import datetime
 from pathlib import Path
+from tqdm import tqdm
 
 MODES = ['HA', 'HP', 'VA', 'VP']
 MODE_COLORS = {'HA': (210, 100, 100), 'HP': (255, 128, 128), 'VA': (100, 210, 100), 'VP': (128, 255, 128)}
@@ -38,7 +39,7 @@ class LabelMaker:
             self.labels = pd.read_csv(str(self.labels_csv_path), index_col='frame')
         else:
             iso_date = datetime.now().strftime('%Y%m%d_%H%M%S')
-            self.labels_csv_path = str(self.path) + '.LabelMaker.csv'.format(iso_date)
+            self.labels_csv_path = str(self.path) + '.LabelMaker-{}.csv'.format(iso_date)
             print('Creating empty labels DF')
             self.labels = pd.DataFrame(index=range(self.num_frames),
                                        columns=COLUMNS)
@@ -63,6 +64,7 @@ class LabelMaker:
         cv2.setMouseCallback('LabelMaker', self.process_mouse_event)
 
         self.time_last_grab = None
+        self.pbar = tqdm(total=self.num_frames)
         self.loop()
 
     def loop(self):
@@ -91,12 +93,11 @@ class LabelMaker:
     def grab(self, relative=None, absolute=None):
 
         # Time to process frame
-        if self.time_last_grab is not None:
-            print('{:.1f} s'.format(time.time() - self.time_last_grab))
+        # if self.time_last_grab is not None:
+            # print('{:.1f} s'.format(time.time() - self.time_last_grab))
 
         # Frame movements (absolute, relative, next)
         if relative is not None:
-            print(max(0, self.frame_id + relative))
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, max(0, self.frame_id + relative))
         elif absolute is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, max(0, absolute))
@@ -107,6 +108,9 @@ class LabelMaker:
         # read next frame
         rv, frame = self.capture.read()
         self.frame_id = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
+
+        self.pbar.n = self.frame_id
+        self.pbar.refresh()
 
         if rv:
             self.frame = frame
@@ -133,7 +137,7 @@ class LabelMaker:
 
         # skip frame
         elif key == ord(','):
-            self.grab(relative=-self.frame_skip - 1)
+            self.grab(relative=-self.frame_skip - 2)
 
     def process_mouse_event(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -145,11 +149,12 @@ class LabelMaker:
 
     def quit(self):
         self.alive = False
+        self.pbar.close()
         cv2.destroyAllWindows()
 
         # iso_date = datetime.now().strftime('%Y%m%d_%H%M%S')
         # csv_out_path = str(self.path) + '.LabelMaker.csv'.format(iso_date)
-        self.labels.to_csv(self.labels_csv_path, index_label='frame')
+        self.labels.to_csv(str(self.labels_csv_path), index_label='frame')
         print('Labels written to {}'.format(self.labels_csv_path))
 
 
