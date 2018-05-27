@@ -13,6 +13,7 @@ COLUMNS = ['presented', 'label',
            'HAx', 'HAy', 'HPx', 'HPy',
            'VAx', 'VAy', 'VPx', 'VPy']
 
+
 class LabelMaker:
     def __init__(self, vid_path, labels_file=None, start_frame=0, frame_skip=2, force_mode=None):
         self.__start_frame = start_frame
@@ -30,7 +31,6 @@ class LabelMaker:
         self.frame = None
         self.frame_id = None
         self.disp_frame = None
-
 
         self.labels_csv_path = Path(labels_file).resolve() if labels_file is not None else None
         if self.labels_csv_path.exists():
@@ -64,7 +64,7 @@ class LabelMaker:
         self.loop()
 
     def loop(self):
-        self.grab(abs=0)
+        self.grab(absolute=0)
         while self.alive:
             self.disp_frame = self.frame.copy()
 
@@ -86,17 +86,18 @@ class LabelMaker:
             key = cv2.waitKey(1000 // 30)
             self.process_key(key)
 
-    def grab(self, rel=None, abs=None):
+    def grab(self, relative=None, absolute=None):
 
-        # if self.time_last_grab is not None:
-        #     print('{:.1f} s'.format(time.time() - self.time_last_grab))
+        # Time to process frame
+        if self.time_last_grab is not None:
+            print('{:.1f} s'.format(time.time() - self.time_last_grab))
 
-        #print('Before:', int(self.capture.get(cv2.CAP_PROP_POS_FRAMES)))
-        if rel is not None:
-            print(max(0, self.frame_id + rel))
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, max(0, self.frame_id + rel))
-        elif abs is not None:
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, max(0, abs))
+        # Frame movements (absolute, relative, next)
+        if relative is not None:
+            print(max(0, self.frame_id + relative))
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, max(0, self.frame_id + relative))
+        elif absolute is not None:
+            self.capture.set(cv2.CAP_PROP_POS_FRAMES, max(0, absolute))
         else:
             # skip n frames
             for _ in range(self.frame_skip):
@@ -105,20 +106,15 @@ class LabelMaker:
         rv, frame = self.capture.read()
         self.frame_id = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
 
-        print('ID:', self.frame_id)
-
         if rv:
             self.frame = frame
             self.labels.loc[self.frame_id, 'presented'] = 1
             self.time_last_grab = time.time()
-
         else:
             if self.frame is None:
                 raise IOError('Frame acquisition failed')
 
-
         self.mode = self.force_mode if self.force_mode else 0
-
 
     def process_key(self, key):
         if key < 0:
@@ -135,7 +131,7 @@ class LabelMaker:
 
         # skip frame
         elif key == ord(','):
-            self.grab(rel=-self.frame_skip-1)
+            self.grab(relative=-self.frame_skip - 1)
 
     def process_mouse_event(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -144,7 +140,6 @@ class LabelMaker:
             self.mode = self.mode + 1
             if self.mode >= len(MODES) or self.force_mode is not None:
                 self.grab()
-
 
     def quit(self):
         self.alive = False
